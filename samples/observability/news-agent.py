@@ -11,9 +11,10 @@ import asyncio
 from typing import Annotated, List, Literal
 
 import httpx
-from agent_framework import ChatAgent
-from agent_framework.observability import get_tracer, setup_observability
+from agent_framework import Agent
+from agent_framework.observability import get_tracer, configure_otel_providers
 from agent_framework.openai import OpenAIChatClient
+from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter, AzureMonitorMetricExporter
 from opentelemetry.trace import SpanKind
 from pydantic import Field
 
@@ -93,27 +94,55 @@ def get_hackernews_story(
 async def main() -> None:
     print("=== Hacker News Agent (with observability) ===\n")
 
-    # Enable tracing / metrics based on environment configuration
-    setup_observability()
+    # Configure observability with Azure Monitor (Application Insights)
+    connection_string = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+    exporters = []
+    if connection_string:
+        exporters.append(AzureMonitorTraceExporter(connection_string=connection_string))
+        exporters.append(AzureMonitorMetricExporter(connection_string=connection_string))
+        print("Application Insights exporters configured.")
+    else:
+        print("No APPLICATIONINSIGHTS_CONNECTION_STRING found — traces will be local only.")
+
+    configure_otel_providers(
+        exporters=exporters if exporters else None,
+        enable_sensitive_data=True,
+    )
 
     tracer = get_tracer()
 
-    async def get_hn_ids_observed(*args, **kwargs):
+    async def get_hn_ids_observed(
+        list_type: Annotated[
+            Literal["top", "new", "best"],
+            Field(description="Which Hacker News list to fetch: 'top', 'new', or 'best'."),
+        ] = "top",
+        limit: Annotated[
+            int,
+            Field(description="Maximum number of story IDs to return (1-50).", ge=1, le=50),
+        ] = 10,
+    ) -> List[int]:
+        """Get a list of recent Hacker News story IDs using the Firebase API."""
         with tracer.start_as_current_span(
             "tool:get_hackernews_story_ids", kind=SpanKind.CLIENT
         ) as span:
             span.set_attribute("tool.name", "get_hackernews_story_ids")
-            return get_hackernews_story_ids(*args, **kwargs)
+            return get_hackernews_story_ids(list_type=list_type, limit=limit)
 
-    async def get_hn_story_observed(*args, **kwargs):
+    async def get_hn_story_observed(
+        story_id: Annotated[
+            int,
+            Field(description="The Hacker News story ID to retrieve."),
+        ],
+    ) -> dict:
+        """Get the full JSON details of a Hacker News story by ID."""
         with tracer.start_as_current_span(
             "tool:get_hackernews_story", kind=SpanKind.CLIENT
         ) as span:
             span.set_attribute("tool.name", "get_hackernews_story")
-            return get_hackernews_story(*args, **kwargs)
+            return get_hackernews_story(story_id=story_id)
 
-    agent = ChatAgent(
-        chat_client=medium_client,
+    agent = Agent(
+        client=medium_client,
         instructions=(
             "You are a helpful news assistant that uses the provided tools "
             "to fetch and summarize Hacker News stories. When asked about "
@@ -123,7 +152,7 @@ async def main() -> None:
         tools=[get_hn_ids_observed, get_hn_story_observed],
     )
 
-    thread = agent.get_new_thread()
+    session = agent.create_session()
 
     user_queries = [
         "Give me a brief summary of the current top 5 Hacker News stories.",
@@ -133,7 +162,7 @@ async def main() -> None:
 
     for query in user_queries:
         print(f"User: {query}")
-        result = await agent.run(query, thread=thread)
+        result = await agent.run(query, session=session)
         print(f"Agent: {result.text}\n")
 
 

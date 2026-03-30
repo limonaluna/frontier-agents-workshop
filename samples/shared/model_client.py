@@ -6,7 +6,7 @@ from agent_framework import BaseChatClient
 from agent_framework.openai import OpenAIChatClient 
 from agent_framework.azure import AzureOpenAIChatClient
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 def create_chat_client(model_name: str) -> BaseChatClient:
     """Create an OpenAIChatClient."""
@@ -52,14 +52,11 @@ def create_chat_client(model_name: str) -> BaseChatClient:
         else:
             print("Using Azure OpenAI AAD authentication.")
             logger.info("AZURE_OPENAI_API_KEY not found - will use AAD authentication.")
-            token_provider = get_bearer_token_provider(
-                DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
-            )
             endpoint = azure_endpoint
 
             return AzureOpenAIChatClient(
                 deployment_name=model_name,
-                ad_token_provider=token_provider,
+                credential=DefaultAzureCredential(),
                 endpoint=endpoint,
             )   
 
