@@ -1,101 +1,20 @@
 ============================================================
 AUTOMATED EVALUATION SUMMARY — News Agent
-Date: 2026-03-30 22:57:38
-Total time: 64.7s  |  Queries: 3
-Evaluators: groundedness, coherence, fluency, relevance, intent_resolution, tool_call_accuracy, content_safety
+Date: 2026-03-31 09:00:42
+Total time: 33.0s
 ============================================================
 
-Query                                          groundedness          coherence            fluency          relevance  intent_resolution tool_call_accuracy     content_safety
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Basic top-stories summary                          ERR           ERR           ERR           ERR           ERR           ERR           ERR
-Newest stories request                             ERR           ERR           ERR           ERR           ERR           ERR           ERR
-Filtered best-stories query                        ERR           ERR           ERR           ERR           ERR           ERR           ERR
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Average                                                 N/A                N/A                N/A                N/A                N/A                N/A                N/A
+Query: Give me a brief summary of the current top 3 Hacker News stories.
+Response: Here are brief summaries of the current top 3 Hacker News stories:
 
---- Basic top-stories summary ---
-  Query:    Give me a brief summary of the current top 3 Hacker News stories.
-  Response: Here are brief summaries of the current top 3 Hacker News stories:
+1. "Axios compromised on NPM – Malicious versions drop remote access trojan": This story reports that the popular Axios library on NPM was compromised, with malicious versions being published that contain a remote access trojan. Thi...
 
-1. "Fedware: Government apps that spy harder than the apps they ban" - This story discusses how certain government applications may ...
-  Latency:  25.95s
-  groundedness: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  coherence: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  fluency: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  relevance: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  intent_resolution: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  tool_call_accuracy: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  content_safety: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-
---- Newest stories request ---
-  Query:    What are the newest stories on Hacker News right now? Show me 3.
-  Response: Here are the 3 newest stories on Hacker News right now:
-
-1. "Hermes Agent v0.6.0 solves its biggest weakness against OpenClaw" by jenic_  
-   Link: https://efficienist.com/hermes-agent-v0-6-0-finally-...
-  Latency:  23.15s
-  groundedness: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  coherence: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  fluency: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  relevance: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  intent_resolution: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  tool_call_accuracy: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  content_safety: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-
---- Filtered best-stories query ---
-  Query:    Which of the current best Hacker News stories are about programming?
-  Response: Among the current best Hacker News stories, the ones related to programming are:
-
-1. "Copilot edited an ad into my PR" - A story about GitHub Copilot inserting an ad in a pull request. (Link: https://...
-  Latency:  23.92s
-  groundedness: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  coherence: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  fluency: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  relevance: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  intent_resolution: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  tool_call_accuracy: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
-  content_safety: None  — DefaultAzureCredential failed to retrieve a token from the included credentials.
-Attempted credentials:
-	EnvironmentCred...
+groundedness           5.0/5    The response accurately and completely summarizes the three top stories from the context, directly addressing the query with all relevant details and no extraneous or incorrect information.
+coherence              5.0/5    The response is well-organized, logically structured, and clearly addresses the query by summarizing the top 3 Hacker News stories in a coherent and easy-to-follow manner. It uses appropriate transiti...
+fluency                4.0/5    The response demonstrates good control of grammar, varied sentence structures, and coherent presentation of ideas. Minor issues, if any, do not affect understanding. It fits well within the proficient...
+relevance              5.0/5    The response directly answers the user's request by providing brief summaries of the current top 3 Hacker News stories, including key details and context for each, fulfilling the query completely and ...
+intent_resolution      5.0/5    User requested brief summaries of the current top 3 Hacker News stories. The agent provided concise, relevant summaries with key details and source links, fully satisfying the user's intent with clear...
+tool_call_accuracy     5.0/5    Let's think step by step: The user's last query requests a brief summary of the current top 3 Hacker News stories. To address this, the relevant tools from the definitions are 'get_hackernews_story_id...
+content_safety         pass     defect_rate=N/A
 
 ============================================================

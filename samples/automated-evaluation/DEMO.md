@@ -15,7 +15,7 @@ Building an AI agent is one thing — knowing whether it's *good* is another. Wh
 - **Safe** — free of violent, sexual, hateful, or self-harm content?
 - **Using tools correctly** — calling the right functions with the right arguments?
 
-You could review outputs manually, but that doesn't scale. What you need is **automated evaluation** — run your agent on a set of test queries, then have a judge model score every response across multiple quality dimensions.
+You could review outputs manually, but that doesn't scale. What you need is **automated evaluation** — run your agent, then have a judge model score the response across multiple quality dimensions.
 
 The Azure AI Evaluation SDK (`azure-ai-evaluation`) provides production-ready evaluators for exactly this. In this demo, we'll see how to wire them up to evaluate a real agent end-to-end, push results to Foundry, and track evaluation scores in Application Insights.
 
@@ -25,8 +25,8 @@ The Azure AI Evaluation SDK (`azure-ai-evaluation`) provides production-ready ev
 
 The sample (`samples/automated-evaluation/evaluate-news-agent.py`) does four things:
 
-1. **Runs the news agent** on 3 test queries **in parallel** (e.g., "summarize the top 3 HN stories")
-2. **Evaluates each response** using 7 evaluators across three categories — all evaluators run in parallel per query
+1. **Runs the news agent** on a test query ("summarize the top 3 HN stories")
+2. **Evaluates the response** using 7 evaluators across three categories — all evaluators run in parallel
 3. **Emits evaluation scores as OTEL events** to Application Insights for monitoring
 4. **Pushes results to Foundry** for a visual evaluation dashboard
 
@@ -61,35 +61,18 @@ The sample (`samples/automated-evaluation/evaluate-news-agent.py`) does four thi
 
 Open `samples/automated-evaluation/evaluate-news-agent.py` and highlight these sections:
 
-### 1.1 Test dataset
-
-```python
-TEST_QUERIES = [
-    {"query": "Give me a brief summary of the current top 3 Hacker News stories.",
-     "description": "Basic top-stories summary"},
-    {"query": "What are the newest stories on Hacker News right now? Show me 3.",
-     "description": "Newest stories request"},
-    {"query": "Which of the current best Hacker News stories are about programming?",
-     "description": "Filtered best-stories query"},
-]
-```
-
-**Talking points:**
-- Each test case exercises different agent behaviors (different list types, filtering)
-- In production, you'd have tens or hundreds of test cases covering edge cases
-
-### 1.2 Three categories of evaluators
+### 1.1 Three categories of evaluators
 
 ```python
 evaluators = {
     # Quality evaluators (1-5 score)
-    "groundedness": GroundednessEvaluator(model_config=model_config),
-    "coherence":    CoherenceEvaluator(model_config=model_config),
-    "fluency":      FluencyEvaluator(model_config=model_config),
-    "relevance":    RelevanceEvaluator(model_config=model_config),
+    "groundedness": GroundednessEvaluator(model_config=model_config, credential=credential),
+    "coherence":    CoherenceEvaluator(model_config=model_config, credential=credential),
+    "fluency":      FluencyEvaluator(model_config=model_config, credential=credential),
+    "relevance":    RelevanceEvaluator(model_config=model_config, credential=credential),
     # Agent evaluators (1-5 score)
-    "intent_resolution":  IntentResolutionEvaluator(model_config=model_config),
-    "tool_call_accuracy": ToolCallAccuracyEvaluator(model_config=model_config),
+    "intent_resolution":  IntentResolutionEvaluator(model_config=model_config, credential=credential),
+    "tool_call_accuracy": ToolCallAccuracyEvaluator(model_config=model_config, credential=credential),
 }
 # + ContentSafetyEvaluator when FOUNDRY_PROJECT_ENDPOINT is set
 ```
@@ -97,23 +80,24 @@ evaluators = {
 **Talking points:**
 - Quality evaluators use a judge model to score responses on a 1-5 scale
 - Agent evaluators assess whether the agent understood the intent and used tools correctly
-- Content safety runs server-side via Foundry — no local model needed, checks for violence, self-harm, sexual content, and hate/unfairness
+- Content safety runs server-side via Foundry — no local model needed
+- All evaluators share a single credential to avoid redundant auth calls
 - All evaluators return a score plus a natural language reason explaining *why*
 
-### 1.3 Parallel execution
+### 1.2 Parallel evaluator execution
 
 ```python
-results = await asyncio.gather(
-    *[run_single_query(i, tc) for i, tc in enumerate(TEST_QUERIES, 1)]
-)
+with ThreadPoolExecutor(max_workers=len(evaluators)) as executor:
+    futures = {name: loop.run_in_executor(executor, run_evaluator, name, ev)
+               for name, ev in evaluators.items()}
+    eval_results = await asyncio.gather(*futures.values())
 ```
 
 **Talking points:**
-- All 3 agent queries run in parallel (not sequentially)
-- Within each query, all 7 evaluators also run in parallel via a thread pool
-- This cuts total execution time significantly
+- All 7 evaluators run in parallel via a thread pool — not one after another
+- This cuts evaluation time dramatically
 
-### 1.4 OTEL evaluation events
+### 1.3 OTEL evaluation events
 
 ```python
 span.set_attribute(f"eval.{k}", v)
@@ -125,7 +109,7 @@ span.add_event("evaluation_scores", attributes={...})
 - They appear in Application Insights alongside the agent trace
 - You can query them with KQL to build monitoring dashboards
 
-### 1.5 Foundry upload
+### 1.4 Foundry upload
 
 ```python
 foundry_result = evaluate(
@@ -153,10 +137,10 @@ While it runs, narrate what you see:
 
 | What you see | What to say |
 |---|---|
-| `Running 3 agent queries in parallel...` | "All three queries launch simultaneously." |
-| `[1/3] Basic top-stories summary — 12.1s` | "Each query finishes as the agent completes." |
-| `All queries + evaluations completed in 35.2s` | "Total time is much less than 3× sequential." |
-| The summary table | "Here's the overall picture. Scores are 1-5 for quality/agent, pass/fail for safety." |
+| `Query: Give me a brief summary...` | "We send a single test query to the agent." |
+| `Agent responded in 12.1s (786 chars)` | "The agent fetched story data and generated a summary." |
+| `Evaluating...` | "Now all 7 evaluators run in parallel to score the response." |
+| The score list | "Each evaluator returns a 1-5 score (or pass/fail for safety) with a reason." |
 | `Pushing evaluation results to Foundry...` | "Now we upload to Foundry for a persistent dashboard." |
 | `View in Foundry: https://ai.azure.com/...` | "Open this link to see the visual evaluation dashboard." |
 
@@ -179,8 +163,8 @@ While it runs, narrate what you see:
 ### Local output files
 
 In `samples/automated-evaluation/`:
-- **`results.jsonl`** — detailed JSON per query (scores, reasons, response text, context)
-- **`eval_output.txt`** — human-readable summary with the score table and per-query breakdown
+- **`results.jsonl`** — detailed JSON with scores, reasons, response text, and context
+- **`eval_output.txt`** — human-readable summary
 
 The reasons are especially useful for debugging low scores — they explain exactly what went wrong.
 
@@ -188,7 +172,7 @@ The reasons are especially useful for debugging low scores — they explain exac
 
 Open the Foundry link printed at the end. The dashboard shows:
 - Per-evaluator score distributions
-- Per-query drill-down with reasons
+- Drill-down with reasons
 - Trend tracking across evaluation runs
 
 ---
@@ -205,7 +189,7 @@ Open the Foundry link printed at the end. The dashboard shows:
 
 Open **Logs** in Application Insights and run these queries:
 
-#### Query 1 — Evaluation scores per query
+#### Query 1 — Evaluation scores
 
 ```kql
 traces
@@ -223,7 +207,7 @@ traces
 | order by timestamp desc
 ```
 
-#### Query 2 — Average evaluation scores over time
+#### Query 2 — Average scores over time
 
 ```kql
 dependencies
@@ -260,30 +244,12 @@ dependencies
 | order by timestamp desc
 ```
 
-#### Query 4 — Evaluation events with full detail
-
-```kql
-traces
-| where message == "evaluation_scores"
-| extend d = parse_json(customDimensions)
-| project
-    timestamp,
-    groundedness = tostring(d.groundedness),
-    coherence = tostring(d.coherence),
-    fluency = tostring(d.fluency),
-    relevance = tostring(d.relevance),
-    intent_resolution = tostring(d.intent_resolution),
-    tool_call_accuracy = tostring(d.tool_call_accuracy),
-    content_safety = tostring(d.content_safety)
-| order by timestamp desc
-```
-
 ---
 
 ## Wrap-up — Key points to land
 
 1. **Three evaluation categories** — quality (groundedness, coherence, fluency, relevance), agent (intent resolution, tool call accuracy), and safety (content safety)
-2. **Parallel execution** — agent queries and evaluators all run concurrently for fast feedback
+2. **Parallel evaluation** — all 7 evaluators run concurrently for fast feedback
 3. **Context from tools** — tool outputs are the natural source of truth for groundedness evaluation
 4. **OTEL integration** — evaluation scores flow into Application Insights as span attributes and events, queryable with KQL
 5. **Foundry dashboard** — `evaluate()` pushes results to Foundry for visual tracking and trend analysis
